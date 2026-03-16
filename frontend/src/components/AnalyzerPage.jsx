@@ -6,16 +6,24 @@ import { useNavigate } from 'react-router-dom';
 
 const AnalyzerPage = () => {
   const [pdfUrl, setPdfUrl] = useState('');
+  const [selectedFile, setSelectedFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [resultData, setResultData] = useState(null);
   const scorecardRef = useRef(null);
+  const fileInputRef = useRef(null);
   const navigate = useNavigate();
 
   const handleCalculate = async (e) => {
     e.preventDefault();
-    if (!pdfUrl) {
-      setError('Please enter a valid PDF URL');
+    
+    if (!pdfUrl && !selectedFile) {
+      setError('Please enter a PDF URL or upload a file');
+      return;
+    }
+
+    if (pdfUrl && pdfUrl.startsWith('file://')) {
+      setError('Local file links (file://) cannot be accessed directly. Please use the "Upload File" button instead.');
       return;
     }
 
@@ -24,12 +32,32 @@ const AnalyzerPage = () => {
     setResultData(null);
 
     try {
-      const response = await axios.post('https://analyzerpro.onrender.com/api/analyze', { pdfUrl });
+      let response;
+      if (selectedFile) {
+        const formData = new FormData();
+        formData.append('pdfFile', selectedFile);
+        response = await axios.post('https://analyzerpro.onrender.com/api/analyze', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+      } else {
+        response = await axios.post('https://analyzerpro.onrender.com/api/analyze', { url: pdfUrl });
+      }
       setResultData(response.data);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to analyze PDF. Please check the URL and try again.');
+      setError(err.response?.data?.error || 'Failed to analyze PDF. Please check the file/URL and try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file && file.type === 'application/pdf') {
+      setSelectedFile(file);
+      setPdfUrl(''); // Clear URL if file is selected
+      setError('');
+    } else {
+      setError('Please select a valid PDF file');
     }
   };
 
@@ -89,36 +117,75 @@ const AnalyzerPage = () => {
             <p className="text-gray-400">Insert your direct PDF link below to start the intelligent extraction process.</p>
           </div>
 
-          <form onSubmit={handleCalculate} className="flex flex-col md:flex-row gap-4 max-w-4xl mx-auto">
-            <div className="relative flex-grow group">
-              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <svg className="w-5 h-5 text-gray-500 group-focus-within:text-red-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+          <form onSubmit={handleCalculate} className="max-w-4xl mx-auto space-y-6">
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="relative flex-grow group">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <svg className="w-5 h-5 text-gray-500 group-focus-within:text-red-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+                </div>
+                <input
+                  type="text"
+                  value={pdfUrl}
+                  onChange={(e) => {
+                    setPdfUrl(e.target.value);
+                    if (e.target.value) setSelectedFile(null);
+                  }}
+                  placeholder="Paste direct PDF link here..."
+                  className="w-full pl-12 pr-4 py-5 bg-black/40 border border-white/10 rounded-2xl focus:ring-2 focus:ring-red-600 focus:border-transparent outline-none transition-all text-white placeholder:text-gray-600 font-medium"
+                />
               </div>
-              <input
-                type="text"
-                value={pdfUrl}
-                onChange={(e) => setPdfUrl(e.target.value)}
-                placeholder="https://example.com/response-sheet.pdf"
-                className="w-full pl-12 pr-4 py-5 bg-black/40 border border-white/10 rounded-2xl focus:ring-2 focus:ring-red-600 focus:border-transparent outline-none transition-all text-white placeholder:text-gray-600 font-medium"
-              />
+
+              <div className="flex gap-2">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  accept=".pdf"
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current.click()}
+                  className={`px-6 py-5 rounded-2xl border-2 border-dashed transition-all flex flex-col items-center justify-center min-w-[140px] ${selectedFile ? 'border-green-500 bg-green-500/10 text-green-500' : 'border-white/20 bg-white/5 hover:border-red-500/50 text-gray-400 hover:text-white'}`}
+                >
+                  {selectedFile ? (
+                    <>
+                      <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+                      <span className="text-[10px] font-bold uppercase truncate max-w-[100px]">{selectedFile.name}</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                      <span className="text-[10px] font-bold uppercase">Upload File</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className={`px-10 py-5 bg-red-600 hover:bg-red-700 text-white font-black rounded-2xl shadow-xl shadow-red-600/20 transition-all active:scale-95 flex items-center justify-center space-x-3 min-w-[200px] ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                >
+                  {loading ? (
+                    <>
+                      <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      <span>ANALYZING...</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
+                      <span>CALCULATE</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
-            <button
-              type="submit"
-              disabled={loading}
-              className={`px-10 py-5 bg-red-600 hover:bg-red-700 text-white font-black rounded-2xl shadow-xl shadow-red-600/20 transition-all active:scale-95 flex items-center justify-center space-x-3 min-w-[200px] ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
-            >
-              {loading ? (
-                <>
-                  <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin"></div>
-                  <span>ANALYZING...</span>
-                </>
-              ) : (
-                <>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
-                  <span>CALCULATE</span>
-                </>
-              )}
-            </button>
+            
+            <div className="flex items-center justify-center space-x-4 opacity-50">
+              <div className="h-px bg-white/20 flex-grow"></div>
+              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Supports Cloud URLs & Direct Uploads</span>
+              <div className="h-px bg-white/20 flex-grow"></div>
+            </div>
           </form>
 
           <AnimatePresence>

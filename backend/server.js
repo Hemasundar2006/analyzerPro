@@ -3,6 +3,9 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const axios = require('axios');
 const pdf = require('pdf-parse');
+const multer = require('multer');
+const fs = require('fs');
+const path = require('path');
 const Result = require('./models/Result');
 require('dotenv').config();
 
@@ -10,11 +13,35 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Multer setup for file uploads
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+});
+
 // MongoDB Connection
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/examAnalyzer';
 mongoose.connect(MONGODB_URI)
   .then(() => console.log('MongoDB Connected'))
   .catch(err => console.error('MongoDB Connection Error:', err));
+
+// Helper to transform common cloud links to direct download links
+const transformLink = (url) => {
+  if (!url) return url;
+  
+  // Google Drive
+  if (url.includes('drive.google.com')) {
+    const fileId = url.match(/\/d\/([^\/]+)/)?.[1] || url.match(/id=([^\&]+)/)?.[1];
+    if (fileId) return `https://drive.google.com/uc?export=download&id=${fileId}`;
+  }
+  
+  // Dropbox
+  if (url.includes('dropbox.com')) {
+    return url.replace('www.dropbox.com', 'dl.dropboxusercontent.com').replace('?dl=0', '').replace('?dl=1', '');
+  }
+  
+  return url;
+};
 
 // Helper function to extract details using Regex (Placeholders)
 const extractData = (text) => {
@@ -67,17 +94,37 @@ const extractData = (text) => {
   };
 };
 
-app.post('/api/analyze', async (req, res) => {
-  const { pdfUrl } = req.body;
-
-  if (!pdfUrl) {
-    return res.status(400).json({ error: 'PDF URL is required' });
-  }
-
+app.post('/api/analyze', upload.single('pdfFile'), async (req, res) => {
+  const { pdfUrl, url } = req.body;
+  const targetUrl = pdfUrl || url;
+  
   try {
-    // Download PDF
-    const response = await axios.get(pdfUrl, { responseType: 'arraybuffer' });
-    const dataBuffer = Buffer.from(response.data);
+    let dataBuffer;
+    let sourceLink = targetUrl || 'Uploaded File';
+
+    if (req.file) {
+      // Handle File Upload
+      dataBuffer = req.file.buffer;
+    } else if (targetUrl) {
+      // Handle URL
+      if (targetUrl.startsWith('file://')) {
+        return res.status(400).json({ 
+          error: 'Local file links (file://) cannot be accessed directly by the server. Please upload the PDF file instead.' 
+        });
+      }
+
+      const directUrl = transformLink(targetUrl);
+
+      const response = await axios.get(directUrl, { 
+        responseType: 'arraybuffer',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+      });
+      dataBuffer = Buffer.from(response.data);
+    } else {
+      return res.status(400).json({ error: 'Either a PDF URL or an uploaded file is required' });
+    }
 
     // Extract Text
     const pdfData = await pdf(dataBuffer);
@@ -89,7 +136,8 @@ app.post('/api/analyze', async (req, res) => {
     // Create new Result document
     const result = new Result({
       ...analysisResult,
-      pdfUrl
+      pdfUrl: sourceLink,
+      url: sourceLink
     });
 
     await result.save();
@@ -97,7 +145,10 @@ app.post('/api/analyze', async (req, res) => {
     res.json(result);
   } catch (error) {
     console.error('Error analyzing PDF:', error);
-    res.status(500).json({ error: 'Failed to process PDF. Ensure the URL is valid and accessible.' });
+    res.status(500).json({ 
+      error: 'Failed to process PDF. Ensure the file is valid and accessible.',
+      details: error.message 
+    });
   }
 });
 

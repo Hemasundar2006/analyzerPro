@@ -20,6 +20,7 @@ const ResultSchema = new mongoose.Schema({
     marks: Number,
   },
   pdfUrl: String,
+  url: String,
   createdAt: {
     type: Date,
     default: Date.now,
