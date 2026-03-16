@@ -24,7 +24,7 @@ const AnalyzerPage = () => {
     setResultData(null);
 
     try {
-      const response = await axios.post('http://localhost:5000/api/analyze', { pdfUrl });
+      const response = await axios.post('https://analyzerpro.onrender.com/api/analyze', { pdfUrl });
       setResultData(response.data);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to analyze PDF. Please check the URL and try again.');
@@ -266,6 +266,81 @@ const AnalyzerPage = () => {
                   </div>
                 </div>
               </div>
+
+              {/* DETAILED INSIGHTS DASHBOARD */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="bg-white/5 border border-white/10 backdrop-blur-md rounded-[32px] p-8 mt-10"
+              >
+                <div className="flex items-center gap-3 mb-8">
+                  <div className="w-12 h-12 bg-red-600/20 rounded-2xl flex items-center justify-center text-red-500">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                  </div>
+                  <h3 className="text-2xl font-black italic">ANALYTICS <span className="text-red-600">INSIGHTS</span></h3>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* Accuracy Card */}
+                  <div className="bg-black/40 border border-white/5 p-6 rounded-2xl">
+                    <p className="text-gray-500 text-xs font-bold uppercase mb-2">Internal Accuracy</p>
+                    <div className="flex items-end gap-2">
+                      <span className="text-4xl font-black text-white">
+                        {((resultData.scoreDetails.right / (resultData.scoreDetails.right + resultData.scoreDetails.wrong)) * 100).toFixed(1)}%
+                      </span>
+                      <span className="text-green-500 text-xs font-bold mb-1">↑ Good</span>
+                    </div>
+                    <div className="w-full bg-white/5 h-2 rounded-full mt-4 overflow-hidden">
+                      <div 
+                        className="bg-green-500 h-full rounded-full" 
+                        style={{ width: `${(resultData.scoreDetails.right / (resultData.scoreDetails.right + resultData.scoreDetails.wrong)) * 100}%` }}
+                      ></div>
+                    </div>
+                  </div>
+
+                  {/* Negative Marking Impact */}
+                  <div className="bg-black/40 border border-white/5 p-6 rounded-2xl">
+                    <p className="text-gray-500 text-xs font-bold uppercase mb-2">Penalty Impact</p>
+                    <div className="flex items-end gap-2">
+                      <span className="text-4xl font-black text-red-500">
+                        -{(resultData.scoreDetails.wrong * 0.25).toFixed(2)}
+                      </span>
+                      <span className="text-gray-500 text-xs mb-1 font-bold">Marks Lost</span>
+                    </div>
+                    <p className="text-[10px] text-gray-500 mt-4 leading-tight italic">
+                      Losing {((resultData.scoreDetails.wrong * 0.25 / resultData.scoreDetails.right) * 100).toFixed(1)}% of correctly earned marks to negative weightage.
+                    </p>
+                  </div>
+
+                  {/* Section Performance */}
+                  <div className="bg-black/40 border border-white/5 p-6 rounded-2xl">
+                    <p className="text-gray-500 text-xs font-bold uppercase mb-2">Exams Metric</p>
+                    <div className="space-y-3 mt-2">
+                       <div className="flex justify-between items-center text-sm">
+                          <span className="text-gray-400">Section</span>
+                          <span className="font-bold">{resultData.scoreDetails.section}</span>
+                       </div>
+                       <div className="flex justify-between items-center text-sm">
+                          <span className="text-gray-400">Attempt Rate</span>
+                          <span className="font-bold">{(( (resultData.scoreDetails.totalQuestions - resultData.scoreDetails.na) / resultData.scoreDetails.totalQuestions) * 100).toFixed(0)}%</span>
+                       </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-8 pt-8 border-t border-white/5 flex flex-wrap gap-4">
+                  <div className="px-4 py-2 bg-white/5 rounded-full border border-white/10 text-[10px] font-bold text-gray-400 uppercase">
+                    Status: <span className="text-green-500">Verified</span>
+                  </div>
+                  <div className="px-4 py-2 bg-white/5 rounded-full border border-white/10 text-[10px] font-bold text-gray-400 uppercase">
+                    Exams: {resultData.candidateDetails.subject}
+                  </div>
+                  <div className="px-4 py-2 bg-white/5 rounded-full border border-white/10 text-[10px] font-bold text-gray-400 uppercase">
+                    Roll: {resultData.candidateDetails.rollNumber}
+                  </div>
+                </div>
+              </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
