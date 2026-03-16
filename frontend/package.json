@@ -1,0 +1,28 @@
+{
+  "name": "exam-analyzer-frontend",
+  "version": "1.0.0",
+  "description": "Frontend for Government Exam Response Sheet Analyzer",
+  "scripts": {
+    "dev": "vite",
+    "start": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "axios": "^1.6.2",
+    "framer-motion": "^10.16.5",
+    "html-to-image": "^1.11.13",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^7.13.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.37",
+    "@types/react-dom": "^18.2.15",
+    "@vitejs/plugin-react": "^4.2.0",
+    "autoprefixer": "^10.4.16",
+    "postcss": "^8.4.31",
+    "tailwindcss": "^3.3.5",
+    "vite": "^8.0.0"
+  }
+}
